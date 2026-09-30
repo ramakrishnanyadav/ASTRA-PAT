@@ -47,104 +47,98 @@ Built specifically to fulfill and exceed the requirements of **ISRO SIH26169**, 
 
 ## 3. End-to-End System Architecture
 
-ASTRA-PAT enforces strict decoupling between input sources, perception, state estimation, predictive control, and user presentation.
+ASTRA-PAT enforces strict decoupling between input sources, perception, state estimation, predictive control, and user presentation. The pipeline is structured across five sequential, deterministic tiers.
 
-### 3.1 Detailed System Architecture Diagram (Mermaid)
+### 3.1 Tiered Architectural Dataflow Diagram
 
 ```mermaid
 flowchart TD
-    classDef inputStyle fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
-    classDef coreStyle fill:#0f172a,stroke:#818cf8,stroke-width:2px,color:#f8fafc;
-    classDef percStyle fill:#14532d,stroke:#4ade80,stroke-width:2px,color:#f8fafc;
-    classDef trackStyle fill:#581c87,stroke:#c084fc,stroke-width:2px,color:#f8fafc;
-    classDef ctrlStyle fill:#7c2d12,stroke:#fb923c,stroke-width:2px,color:#f8fafc;
-    classDef ioStyle fill:#134e4a,stroke:#2dd4bf,stroke-width:2px,color:#f8fafc;
-    classDef uiStyle fill:#312e81,stroke:#a5b4fc,stroke-width:2px,color:#f8fafc;
+    %% Global Styling
+    classDef inputTier fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
+    classDef percTier fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#f8fafc;
+    classDef trackTier fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#f8fafc;
+    classDef ctrlTier fill:#7c2d12,stroke:#fb923c,stroke-width:2px,color:#f8fafc;
+    classDef ioTier fill:#134e4a,stroke:#2dd4bf,stroke-width:2px,color:#f8fafc;
+    classDef uiTier fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#f8fafc;
 
-    subgraph INPUT_ADAPTERS ["Dual Interchangeable Input Layer"]
-        SIM_IN["SimulationInput<br/>(2000x2000 Scene + PTZ + Disturbances)"]:::inputStyle
-        MP4_IN["MP4Input<br/>(Video Decoder, Full Frame, Bypasses PTZ)"]:::inputStyle
+    subgraph T1 ["TIER 1 · DUAL INPUT ADAPTERS (INTERCHANGEABLE)"]
+        direction LR
+        SIM["SimulationInput Adapter<br/>• 2000x2000 Scene Canvas Digital Twin<br/>• Disturbances: Noise, Atmosphere, Jitter"]:::inputTier
+        MP4["MP4Input Adapter (Benchmark-2)<br/>• External Video Stream Decoder<br/>• 640x480 Sensor Feed (Bypasses PTZ)"]:::inputTier
     end
 
-    subgraph TRACKER_CORE ["TrackerCore Unified Perception & Estimation Engine"]
-        PREPROC["Preprocessing Stage<br/>- 3x3 Median Rank Filter<br/>- Morphological Top-Hat Opening"]:::percStyle
-        VALIDATOR["Candidate Extraction & Gating<br/>- Dynamic Noise-Floor Threshold<br/>- Connected Components<br/>- Area & Aspect-Ratio Filters"]:::percStyle
-        CENTROID["Subpixel Centroiding<br/>- Intensity-Weighted Center of Mass<br/>- Local Background Subtraction<br/>- Learned 6-Feature MLP Scorer"]:::percStyle
-        
-        IMM["Kinematic State Estimation<br/>- Constant Acceleration Kalman Filter<br/>- Interacting Multiple Model (IMM)<br/>- 8-Sigma Mahalanobis Validation Gate"]:::trackStyle
-        FSM["7-State Tracking State Machine<br/>(SEARCH, ACQUIRE, TRACK,<br/>DEGRADED, PREDICT, REACQUIRE, FAILSAFE)"]:::trackStyle
-        REACQ["Adaptive Search Ladder<br/>- Covariance-Driven Adaptive ROI<br/>- Expanding Reacquisition Expansion"]:::trackStyle
-        
-        CTRL["Predictive Actuation Controller<br/>- Velocity Feed-Forward Compensation<br/>- Proportional-Derivative Error Feedback<br/>- Actuator Slew Rate Limiter (5-10 deg/s)"]:::ctrlStyle
+    subgraph T2 ["TIER 2 · PERCEPTION & CENTROIDING ENGINE (BaseDetector)"]
+        direction LR
+        PRE["1. Preprocessing<br/>• 3x3 Median Denoise<br/>• 9x9 Top-Hat BG Suppression"]:::percTier
+        VAL["2. Candidate Gating<br/>• Adaptive Threshold (3.5σ)<br/>• Area & Shape Filters (>0.35)"]:::percTier
+        CEN["3. Subpixel Centroiding<br/>• Intensity-Weighted CoM<br/>• 6-Feature MLP Scorer"]:::percTier
+        PRE --> VAL --> CEN
     end
 
-    subgraph TELEMETRY_IO ["Asynchronous Telemetry Flight Recorder"]
-        QUEUE["Thread-Safe Bounded Queue<br/>(maxsize = 5000 records)"]:::ioStyle
-        WORKER["Dedicated Daemon Thread<br/>(Zero Disk Latency on Tracking Loop)"]:::ioStyle
-        CENTROID_CSV["centroid.csv<br/>(Canonical Centroid Stream)"]:::ioStyle
-        TRACKING_CSV["tracking.csv<br/>(Full Kinematic Telemetry)"]:::ioStyle
-        METRICS_JSON["metrics.json<br/>(SPEC / TARGET / MEASURED)"]:::ioStyle
-        REPORT_HTML["report.html<br/>(Telemetry Charts & HTML Audit)"]:::ioStyle
+    subgraph T3 ["TIER 3 · KINEMATIC STATE ESTIMATION & FSM"]
+        direction LR
+        IMM["4. IMM State Estimator<br/>• Constant Acceleration KF<br/>• 8-Sigma Mahalanobis Gate"]:::trackTier
+        FSM["5. Tracking FSM (7 States)<br/>• Hysteresis Gating (3/6)<br/>• Acquisition Timers"]:::trackTier
+        ROI["6. Adaptive Search Ladder<br/>• Covariance-Driven ROI<br/>• Sub-Second Reacquisition"]:::trackTier
+        IMM --> FSM --> ROI
     end
 
-    subgraph PRESENTATION_LAYER ["PySide6 Scientific Desktop Instrument GUI"]
-        GUI_VIEW["VideoDisplayWidget<br/>- 640x480 Live Sensor FPA<br/>- Boresight Reticle & Marker<br/>- Adaptive ROI Bounding Box"]:::uiStyle
-        GUI_CTRLS["ControlsPanel<br/>- Scenario Select & Seed<br/>- Real-Time Disturbance Knobs<br/>- Slew Limit Sliders"]:::uiStyle
-        GUI_MISSION["MissionReadinessPanel<br/>- SPEC vs TARGET vs MEASURED<br/>- Real-Time Compliance Badges"]:::uiStyle
-        GUI_PLOTS["TelemetryPlotsWidget<br/>- Error vs Time (px)<br/>- Confidence vs Time<br/>- Throughput (FPS)"]:::uiStyle
+    subgraph T4 ["TIER 4 · PREDICTIVE CONTROL & PTZ ACTUATION"]
+        direction LR
+        CTRL["7. Predictive Controller<br/>• Velocity Feed-Forward<br/>• PD Sensor Error Feedback"]:::ctrlTier
+        ACT["8. Virtual PTZ Gimbal<br/>• Slew Limiter (5.0 - 10.0 deg/s)<br/>• Saturation Detector & Logger"]:::ctrlTier
+        CTRL --> ACT
     end
 
-    SIM_IN -->|Sensor Frame 640x480| PREPROC
-    MP4_IN -->|Decoded Frame 640x480| PREPROC
+    subgraph T5 ["TIER 5 · TELEMETRY FLIGHT RECORDER & GUI"]
+        direction LR
+        REC["Asynchronous Flight Recorder<br/>• Thread-Safe Bounded Queue (5000)<br/>• Background Worker Thread<br/>• centroid.csv & tracking.csv"]:::ioTier
+        GUI["PySide6 Scientific Desktop GUI<br/>• Live 640x480 Sensor View & Overlays<br/>• Mission-Readiness Checklist (SPEC)<br/>• Real-Time Telemetry Plots"]:::uiTier
+    end
 
-    PREPROC --> VALIDATOR --> CENTROID
-    CENTROID --> IMM --> FSM --> REACQ
-    FSM --> CTRL
+    %% Inter-Tier Primary Feed
+    SIM -->|Sensor Frame 640x480| PRE
+    MP4 -->|Decoded Video Frame| PRE
 
-    CTRL -->|Pan/Tilt Command| SIM_IN
-    CTRL -.->|Bypassed in MP4 Mode| MP4_IN
+    CEN -->|Subpixel Centroid (x, y)| IMM
+    ROI -.->|Adaptive Search Bounding Box| PRE
 
-    CENTROID --> QUEUE
-    FSM --> QUEUE
-    CTRL --> QUEUE
-    QUEUE --> WORKER
-    WORKER --> CENTROID_CSV
-    WORKER --> TRACKING_CSV
-    WORKER --> METRICS_JSON
-    WORKER --> REPORT_HTML
+    FSM -->|State & Kinematic Estimate| CTRL
+    ACT -->|Closed-Loop Pan/Tilt Command| SIM
 
-    FSM --> GUI_VIEW
-    CENTROID --> GUI_VIEW
-    REACQ --> GUI_VIEW
-    WORKER --> GUI_MISSION
-    IMM --> GUI_PLOTS
-    GUI_CTRLS --> SIM_IN
+    CEN -->|Per-Frame Centroid Log| REC
+    FSM -->|Tracking Kinematics| REC
+    ACT -->|Slew Saturation Events| REC
+
+    CEN -->|Marker & Reticle Data| GUI
+    FSM -->|State Badges & Compliance| GUI
+    ROI -->|ROI Visualizer Box| GUI
 ```
 
 ---
 
 ### 3.2 Finite State Machine (FSM) Transition Model
 
-The state machine implements rigorous hysteresis to prevent rapid mode flickering under transient occlusions and atmospheric scintillation.
+The state machine implements explicit hysteresis to prevent state flickering under transient occlusions and atmospheric attenuation:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> SEARCH: Initialize Engine
+    [*] --> SEARCH: System Initialization
 
     SEARCH --> ACQUIRE: Candidate Beacon Detected
-    ACQUIRE --> SEARCH: Single-Frame Glitch (No Confirmation)
+    ACQUIRE --> SEARCH: Spurious Noise Spike (No Confirmation)
     ACQUIRE --> TRACK: N_hits >= 3 Consecutive Valid Frames
 
-    TRACK --> DEGRADED: Confidence < 0.40 (Atmospheric Scatter / Noise)
+    TRACK --> DEGRADED: Confidence Drops < 0.40
     DEGRADED --> TRACK: Confidence Restored >= 0.60
     
-    TRACK --> PREDICT: Signal Occlusion / Dropout (1-3 Frames Missed)
+    TRACK --> PREDICT: Signal Occlusion / Dropout (1-3 Frames)
     DEGRADED --> PREDICT: Signal Lost Completely
 
-    PREDICT --> TRACK: Target Re-detected within 3-Sigma Prediction Gate
-    PREDICT --> REACQUIRE: N_misses >= 6 Frames
+    PREDICT --> TRACK: Target Re-detected inside 3-Sigma Gate
+    PREDICT --> REACQUIRE: N_misses >= 6 Consecutive Frames
 
-    REACQUIRE --> TRACK: Target Located via Expanding ROI Ladder
+    REACQUIRE --> TRACK: Target Found via Expanding ROI Ladder
     REACQUIRE --> FAILSAFE: Lost Duration > 3.0 s (Timeout)
 
     FAILSAFE --> SEARCH: Reset Gimbal to Scene Center
@@ -155,29 +149,63 @@ stateDiagram-v2
 ## 4. Algorithmic Innovations & Theoretical Derivations
 
 ### 4.1 Morphological Background Suppression & Subpixel Centroiding
-To survive $10\%$ salt-and-pepper noise and diffuse atmospheric haze without false locks, ASTRA-PAT couples rank-order median filtering with a morphological white top-hat transformation:
-$$I_{\text{top}}(x, y) = I(x, y) - (I \circ B)(x, y)$$
+
+To survive 10% salt-and-pepper noise and diffuse atmospheric haze without false locks, ASTRA-PAT couples rank-order median filtering with a morphological white top-hat transformation:
+
+$$
+I_{\text{top}}(x, y) = I(x, y) - (I \circ B)(x, y)
+$$
+
 where $B$ is a $9 \times 9$ flat structuring element. Background noise statistics are extracted from the lower $95^{\text{th}}$ percentile of pixel intensities, establishing a dynamic detection threshold:
-$$T_{\text{det}} = \max\left(0.4 \cdot I_{\text{peak,min}}, \;\mu_{\text{bg}} + 3.5 \cdot \max(\sigma_{\text{bg}}, 2.0)\right)$$
+
+$$
+T_{\text{det}} = \max\left(0.4 \cdot I_{\text{peak,min}}, \;\mu_{\text{bg}} + 3.5 \cdot \max(\sigma_{\text{bg}}, 2.0)\right)
+$$
+
 Subpixel centroid estimation is computed via intensity-weighted spatial moments with local background floor subtraction:
-$$\hat{x} = \frac{\sum (x - x_0) \max(I(x, y) - I_{\text{bg}}, 0)}{\sum \max(I(x, y) - I_{\text{bg}}, 0)}, \quad \hat{y} = \frac{\sum (y - y_0) \max(I(x, y) - I_{\text{bg}}, 0)}{\sum \max(I(x, y) - I_{\text{bg}}, 0)}$$
+
+$$
+\hat{x} = \frac{\sum (x - x_0) \max(I(x, y) - I_{\text{bg}}, 0)}{\sum \max(I(x, y) - I_{\text{bg}}, 0)}, \quad \hat{y} = \frac{\sum (y - y_0) \max(I(x, y) - I_{\text{bg}}, 0)}{\sum \max(I(x, y) - I_{\text{bg}}, 0)}
+$$
 
 ### 4.2 Constant Acceleration Kalman & IMM Kinematics
+
 Differencing raw positions amplifies high-frequency noise. ASTRA-PAT formulates kinematic state estimation across a 6-state continuous white-noise acceleration model:
-$$\mathbf{x}_k = \begin{bmatrix} x & y & v_x & v_y & a_x & a_y \end{bmatrix}^T$$
+
+$$
+\mathbf{x}_k = \begin{bmatrix} x & y & v_x & v_y & a_x & a_y \end{bmatrix}^T
+$$
+
 Statistical Mahalanobis gating rejects spurious clutter outliers:
-$$d_M^2 = (\mathbf{z}_k - \mathbf{H}\hat{\mathbf{x}}_{k|k-1})^T \mathbf{S}_k^{-1} (\mathbf{z}_k - \mathbf{H}\hat{\mathbf{x}}_{k|k-1}) \le 64.0 \quad (8\text{-sigma gate})$$
+
+$$
+d_M^2 = (\mathbf{z}_k - \mathbf{H}\hat{\mathbf{x}}_{k|k-1})^T \mathbf{S}_k^{-1} (\mathbf{z}_k - \mathbf{H}\hat{\mathbf{x}}_{k|k-1}) \le 64.0 \quad (8\text{-sigma gate})
+$$
 
 ### 4.3 Predictive Velocity Feed-Forward Gimbal Control
+
 Given camera focal plane optics ($160\text{ px/deg}$) and standard slew limit $\omega_{\max} = 5.0^\circ/\text{s}$, the maximum achievable tracking velocity is:
-$$v_{\max} = 5.0^\circ/\text{s} \times 160\text{ px/deg} = 800.0\text{ px/s} \approx 26.7\text{ px/frame at } 30\text{ Hz}$$
+
+$$
+v_{\max} = 5.0^\circ/\text{s} \times 160\text{ px/deg} = 800.0\text{ px/s} \approx 26.7\text{ px/frame at } 30\text{ Hz}
+$$
+
 Because target speed and platform motion disturbances approach $\pm 20\text{ px/frame}$, an unpredicted feedback controller lags behind by $15 - 25\text{ px}$, causing lock loss. ASTRA-PAT solves this by coupling feed-forward velocity compensation with proportional-derivative feedback:
-$$\omega_{\text{pan}} = \frac{\hat{v}_x}{K_{\text{pan}}} + K_p \left(\frac{x_{\text{target}} - x_{\text{center}}}{K_{\text{pan}}}\right) + K_d \left(\frac{\Delta x - \hat{v}_x \Delta t}{K_{\text{pan}} \Delta t}\right)$$
+
+$$
+\omega_{\text{pan}} = \frac{\hat{v}_x}{K_{\text{pan}}} + K_p \left(\frac{x_{\text{target}} - x_{\text{center}}}{K_{\text{pan}}}\right) + K_d \left(\frac{\Delta x - \hat{v}_x \Delta t}{K_{\text{pan}} \Delta t}\right)
+$$
 
 ### 4.4 Ego-Motion Phase Correlation & Honest Space Fallback
+
 Platform jitter is estimated via 2D Fourier phase correlation:
-$$R(u, v) = \frac{\mathcal{F}\{I_k\} \cdot \mathcal{F}^*\{I_{k-1}\}}{\left| \mathcal{F}\{I_k\} \cdot \mathcal{F}^*\{I_{k-1}\} \right|}$$
+
+$$
+R(u, v) = \frac{\mathcal{F}\{I_k\} \cdot \mathcal{F}^*\{I_{k-1}\}}{\left| \mathcal{F}\{I_k\} \cdot \mathcal{F}^*\{I_{k-1}\} \right|}
+$$
+
 In featureless deep-space environments (lone beacon on pure black background), global image motion cannot be mathematically distinguished from target relative motion. ASTRA-PAT evaluates background texture energy ($\sigma_{\text{bg}} < 3.0$) and honestly falls back to zero-shift reporting with `has_background_structure=False`, never fabricating synthetic motion.
+
 
 ---
 
