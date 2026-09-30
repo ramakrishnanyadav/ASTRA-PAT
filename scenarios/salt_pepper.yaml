@@ -1,0 +1,29 @@
+seed: 42
+scene:
+  width: 2000
+  height: 2000
+camera:
+  sensor_width: 640
+  sensor_height: 480
+  fov_pan_deg: 4.0
+  fov_tilt_deg: 3.0
+  max_pan_rate_dps: 5.0
+  max_tilt_rate_dps: 5.0
+target:
+  shape: square
+  size_px: 10.0
+  intensity: 240.0
+  initial_x: 1000.0
+  initial_y: 1000.0
+  motion_type: figure8
+  speed_px_s: 85.0
+  figure8_scale_px: 220.0
+disturbances:
+  noise_type: salt_pepper
+  salt_pepper_ratio: 0.10  # 10% coverage
+  atmosphere: clear
+acceptance:
+  max_acquisition_sec: 2.0
+  max_tracking_error_px: 10.0
+  max_target_loss_pct: 5.0
+  min_fps: 20.0

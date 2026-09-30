@@ -1,0 +1,80 @@
+seed: 42
+scene:
+  width: 2000
+  height: 2000
+  background_level: 15
+  num_background_stars: 120
+  star_max_intensity: 65
+camera:
+  sensor_width: 640
+  sensor_height: 480
+  fov_pan_deg: 4.0
+  fov_tilt_deg: 3.0
+  update_hz: 30.0
+  control_hz: 30.0
+  max_pan_rate_dps: 5.0
+  max_tilt_rate_dps: 5.0
+  initial_pan_deg: 0.0
+  initial_tilt_deg: 0.0
+target:
+  shape: square
+  size_px: 10.0
+  intensity: 240.0
+  initial_x: 1000.0
+  initial_y: 1000.0
+  motion_type: figure8
+  speed_px_s: 85.0
+  circle_radius_px: 400.0
+  figure8_scale_px: 450.0
+  figure8_period_s: 15.0
+  random_turn_rate_rad_s: 0.6
+  sinusoid_amplitude_px: 200.0
+  sinusoid_freq_hz: 0.1
+  drop_out_start_s: null
+  drop_out_duration_s: 2.0
+disturbances:
+  noise_type: none
+  gaussian_sigma_px: 0.0
+  poisson_scaling: 0.0
+  salt_pepper_ratio: 0.0
+  camera_jitter_px: 0.0
+  atmosphere: clear
+  platform_motion_type: none
+  platform_motion_amp_px: 0.0
+  platform_motion_freq_hz: 0.5
+perception:
+  detector_backend: classical
+  preprocess_median_ksize: 3
+  preprocess_enable_bg_sub: true
+  adaptive_threshold_sigma: 3.5
+  min_area_px: 8.0
+  max_area_px: 500.0
+  min_peak_intensity: 60.0
+  subpixel_window_radius: 5
+  enable_learned_scorer: false
+  learned_scorer_model_path: null
+tracker:
+  estimation_model: constant_acceleration
+  process_noise_pos: 10.0
+  process_noise_vel: 100.0
+  process_noise_acc: 200.0
+  measurement_noise_r: 6.0
+  gate_mahalanobis_threshold: 64.0
+  consecutive_hits_to_track: 3
+  consecutive_misses_to_lost: 6
+  adaptive_roi_base_margin: 65.0
+  adaptive_roi_max_margin: 180.0
+control:
+  kp_pan: 0.8
+  kp_tilt: 0.8
+  kd_pan: 0.05
+  kd_tilt: 0.05
+  feed_forward_weight: 1.0
+  enable_rate_limiter: true
+acceptance:
+  max_acquisition_sec: 2.0
+  max_tracking_error_px: 10.0
+  max_target_loss_pct: 5.0
+  max_reacquisition_sec: 1.0
+  min_fps: 20.0
+  target_fps_margin: 28.57
