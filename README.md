@@ -61,58 +61,58 @@ flowchart TD
     classDef ioTier fill:#134e4a,stroke:#2dd4bf,stroke-width:2px,color:#f8fafc;
     classDef uiTier fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#f8fafc;
 
-    subgraph T1 ["TIER 1 · DUAL INPUT ADAPTERS (INTERCHANGEABLE)"]
+    subgraph T1 ["TIER 1 - DUAL INPUT ADAPTERS (INTERCHANGEABLE)"]
         direction LR
-        SIM["SimulationInput Adapter<br/>• 2000x2000 Scene Canvas Digital Twin<br/>• Disturbances: Noise, Atmosphere, Jitter"]:::inputTier
-        MP4["MP4Input Adapter (Benchmark-2)<br/>• External Video Stream Decoder<br/>• 640x480 Sensor Feed (Bypasses PTZ)"]:::inputTier
+        SIM["SimulationInput Adapter<br/>- 2000x2000 Scene Canvas Digital Twin<br/>- Disturbances: Noise, Atmosphere, Jitter"]:::inputTier
+        MP4["MP4Input Adapter (Benchmark-2)<br/>- External Video Stream Decoder<br/>- 640x480 Sensor Feed (Bypasses PTZ)"]:::inputTier
     end
 
-    subgraph T2 ["TIER 2 · PERCEPTION & CENTROIDING ENGINE (BaseDetector)"]
+    subgraph T2 ["TIER 2 - PERCEPTION AND CENTROIDING ENGINE"]
         direction LR
-        PRE["1. Preprocessing<br/>• 3x3 Median Denoise<br/>• 9x9 Top-Hat BG Suppression"]:::percTier
-        VAL["2. Candidate Gating<br/>• Adaptive Threshold (3.5σ)<br/>• Area & Shape Filters (>0.35)"]:::percTier
-        CEN["3. Subpixel Centroiding<br/>• Intensity-Weighted CoM<br/>• 6-Feature MLP Scorer"]:::percTier
+        PRE["1. Preprocessing<br/>- 3x3 Median Denoise<br/>- 9x9 Top-Hat BG Suppression"]:::percTier
+        VAL["2. Candidate Gating<br/>- Adaptive Threshold: 3.5-Sigma<br/>- Area and Shape Filters: min 0.35"]:::percTier
+        CEN["3. Subpixel Centroiding<br/>- Intensity-Weighted Center of Mass<br/>- 6-Feature MLP Confidence Scorer"]:::percTier
         PRE --> VAL --> CEN
     end
 
-    subgraph T3 ["TIER 3 · KINEMATIC STATE ESTIMATION & FSM"]
+    subgraph T3 ["TIER 3 - KINEMATIC STATE ESTIMATION AND FSM"]
         direction LR
-        IMM["4. IMM State Estimator<br/>• Constant Acceleration KF<br/>• 8-Sigma Mahalanobis Gate"]:::trackTier
-        FSM["5. Tracking FSM (7 States)<br/>• Hysteresis Gating (3/6)<br/>• Acquisition Timers"]:::trackTier
-        ROI["6. Adaptive Search Ladder<br/>• Covariance-Driven ROI<br/>• Sub-Second Reacquisition"]:::trackTier
+        IMM["4. IMM State Estimator<br/>- Constant Acceleration Kalman Filter<br/>- 8-Sigma Mahalanobis Gate"]:::trackTier
+        FSM["5. Tracking FSM (7 States)<br/>- Hysteresis Gating: 3 Hits, 6 Misses<br/>- Real-Time Acquisition Timers"]:::trackTier
+        ROI["6. Adaptive Search Ladder<br/>- Covariance-Driven Search ROI<br/>- Sub-Second Reacquisition Ladder"]:::trackTier
         IMM --> FSM --> ROI
     end
 
-    subgraph T4 ["TIER 4 · PREDICTIVE CONTROL & PTZ ACTUATION"]
+    subgraph T4 ["TIER 4 - PREDICTIVE CONTROL AND PTZ ACTUATION"]
         direction LR
-        CTRL["7. Predictive Controller<br/>• Velocity Feed-Forward<br/>• PD Sensor Error Feedback"]:::ctrlTier
-        ACT["8. Virtual PTZ Gimbal<br/>• Slew Limiter (5.0 - 10.0 deg/s)<br/>• Saturation Detector & Logger"]:::ctrlTier
+        CTRL["7. Predictive Controller<br/>- Velocity Feed-Forward Compensation<br/>- PD Sensor Error Feedback"]:::ctrlTier
+        ACT["8. Virtual PTZ Gimbal<br/>- Slew Limiter: 5 to 10 deg per sec<br/>- Saturation Detector and Logger"]:::ctrlTier
         CTRL --> ACT
     end
 
-    subgraph T5 ["TIER 5 · TELEMETRY FLIGHT RECORDER & GUI"]
+    subgraph T5 ["TIER 5 - TELEMETRY FLIGHT RECORDER AND GUI"]
         direction LR
-        REC["Asynchronous Flight Recorder<br/>• Thread-Safe Bounded Queue (5000)<br/>• Background Worker Thread<br/>• centroid.csv & tracking.csv"]:::ioTier
-        GUI["PySide6 Scientific Desktop GUI<br/>• Live 640x480 Sensor View & Overlays<br/>• Mission-Readiness Checklist (SPEC)<br/>• Real-Time Telemetry Plots"]:::uiTier
+        REC["Asynchronous Flight Recorder<br/>- Thread-Safe Bounded Queue: 5000 items<br/>- Background Daemon Worker Thread<br/>- Emits centroid.csv and tracking.csv"]:::ioTier
+        GUI["PySide6 Scientific Desktop GUI<br/>- Live 640x480 Sensor View and Reticle<br/>- Mission-Readiness Checklist (SPEC)<br/>- Real-Time Telemetry Plots"]:::uiTier
     end
 
     %% Inter-Tier Primary Feed
     SIM -->|Sensor Frame 640x480| PRE
     MP4 -->|Decoded Video Frame| PRE
 
-    CEN -->|Subpixel Centroid (x, y)| IMM
-    ROI -.->|Adaptive Search Bounding Box| PRE
+    CEN -->|Subpixel Centroid Stream| IMM
+    ROI -.->|Adaptive Search Window| PRE
 
-    FSM -->|State & Kinematic Estimate| CTRL
-    ACT -->|Closed-Loop Pan/Tilt Command| SIM
+    FSM -->|Kinematic State Estimate| CTRL
+    ACT -->|Closed Loop Gimbal Feedback| SIM
 
-    CEN -->|Per-Frame Centroid Log| REC
-    FSM -->|Tracking Kinematics| REC
-    ACT -->|Slew Saturation Events| REC
+    CEN -->|Centroid Observations| REC
+    FSM -->|Kinematic State Telemetry| REC
+    ACT -->|Slew Saturation Records| REC
 
-    CEN -->|Marker & Reticle Data| GUI
-    FSM -->|State Badges & Compliance| GUI
-    ROI -->|ROI Visualizer Box| GUI
+    CEN -->|Target Coordinates| GUI
+    FSM -->|Status and Compliance| GUI
+    ROI -->|Adaptive Search Region| GUI
 ```
 
 ---
@@ -201,10 +201,11 @@ $$
 Platform jitter is estimated via 2D Fourier phase correlation:
 
 $$
-R(u, v) = \frac{\mathcal{F}\{I_k\} \cdot \mathcal{F}^*\{I_{k-1}\}}{\left| \mathcal{F}\{I_k\} \cdot \mathcal{F}^*\{I_{k-1}\} \right|}
+R(u, v) = \frac{\mathcal{F}[I_k] \cdot \mathcal{F}^*[I_{k-1}]}{\left| \mathcal{F}[I_k] \cdot \mathcal{F}^*[I_{k-1}] \right|}
 $$
 
 In featureless deep-space environments (lone beacon on pure black background), global image motion cannot be mathematically distinguished from target relative motion. ASTRA-PAT evaluates background texture energy ($\sigma_{\text{bg}} < 3.0$) and honestly falls back to zero-shift reporting with `has_background_structure=False`, never fabricating synthetic motion.
+
 
 
 ---
