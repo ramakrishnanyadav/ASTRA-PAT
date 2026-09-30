@@ -299,8 +299,11 @@ If target lock is lost during dropout, the Kalman filter extrapolates the trajec
 
 ### 9.1 Phase Correlation Formulation
 When background cosmic stars or celestial structures are present, platform jitter is estimated via Fourier Phase Correlation:
-$$R(u, v) = \frac{\mathcal{F}\{I_k\} \cdot \mathcal{F}^*\{I_{k-1}\}}{\left| \mathcal{F}\{I_k\} \cdot \mathcal{F}^*\{I_{k-1}\} \right|}$$
+$$
+R(u, v) = \frac{\mathcal{F}(I_k) \cdot \mathcal{F}^{\ast}(I_{k-1})}{\left| \mathcal{F}(I_k) \cdot \mathcal{F}^{\ast}(I_{k-1}) \right|}
+$$
 $$r(x, y) = \mathcal{F}^{-1}\{R(u, v)\}$$
+
 The peak location of $r(x, y)$ provides the subpixel shift $(\Delta x, \Delta y)$.
 
 ### 9.2 Physical Limitation on Featureless Space Backgrounds

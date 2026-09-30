@@ -201,8 +201,9 @@ $$
 Platform jitter is estimated via 2D Fourier phase correlation:
 
 $$
-R(u, v) = \frac{\mathcal{F}[I_k] \cdot \mathcal{F}^*[I_{k-1}]}{\left| \mathcal{F}[I_k] \cdot \mathcal{F}^*[I_{k-1}] \right|}
+R(u, v) = \frac{\mathcal{F}(I_k) \cdot \mathcal{F}^{\ast}(I_{k-1})}{\left| \mathcal{F}(I_k) \cdot \mathcal{F}^{\ast}(I_{k-1}) \right|}
 $$
+
 
 In featureless deep-space environments (lone beacon on pure black background), global image motion cannot be mathematically distinguished from target relative motion. ASTRA-PAT evaluates background texture energy ($\sigma_{\text{bg}} < 3.0$) and honestly falls back to zero-shift reporting with `has_background_structure=False`, never fabricating synthetic motion.
 
