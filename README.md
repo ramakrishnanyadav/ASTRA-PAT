@@ -17,16 +17,27 @@
 
 ## 1. Executive Summary & Mission Profile
 
-**ASTRA-PAT** is an industrial-grade, standalone desktop digital-twin simulator and coarse Pointing, Acquisition, and Tracking (PAT) system engineered for free-space optical inter-satellite links (ISLs) and deep-space laser communication terminals.
+**ASTRA-PAT** (*Adaptive Space Tracking & Reacquisition Architecture*) is a fully offline, standalone software system designed to address the coarse Pointing, Acquisition and Tracking (PAT) challenge for mobile Free-Space Optical Communication (FSOC) terminals.
 
-Built specifically to fulfill and exceed the requirements of **ISRO SIH26169**, ASTRA-PAT autonomously detects, acquires, and continuously tracks dynamic optical beacons across a large virtual deep-space canvas ($2000 \times 2000\text{ px}$) using a virtual focal plane array (FPA) camera ($640 \times 480\text{ px}$, $160\text{ px/deg}$) constrained by physical gimbal slew limits ($5 - 10^\circ/\text{s}$).
+FSOC systems utilize narrow-divergence optical beams, making communication highly sensitive to platform vibration and angular misalignment. During initial acquisition, dynamic platform drift, or transient line-of-sight dropouts, the beacon spot can move rapidly across the focal plane. ASTRA-PAT provides a software-defined digital twin in which beacon detection, sub-pixel centroid estimation, kinematic state estimation, predictive pointing, continuous closed-loop tracking, and hierarchical reacquisition can be rigorously evaluated without requiring specialized physical pan-tilt and camera hardware during early validation.
+
+The digital twin implements a configurable $2000 \times 2000\text{ px}$ virtual scene, a $640 \times 480\text{ px}$ monochrome focal-plane array with a nominal $160\text{ px/deg}$ scale, configurable virtual camera pan-tilt slew limits of $5 - 10^\circ/\text{s}$, dynamic beacon trajectories including straight-line, circular, figure-eight and random motion, and controllable platform disturbances. Supported disturbances include Gaussian and Poisson noise, approximately $10\%$ salt-and-pepper noise, configurable camera jitter up to $\pm 20\text{ px/frame}$, platform motion, and image-space atmospheric approximations including haze, fog, rain and low-light conditions.
+
+ASTRA-PAT's perception pipeline combines median filtering, morphological top-hat background suppression, dynamic noise-floor thresholding, connected-component geometric validation, and intensity-weighted sub-pixel centroid estimation. Kinematic estimation uses Constant Acceleration Kalman filtering and Interacting Multiple Model (IMM) estimation with state prediction and measurement validation. Tracking is governed by a seven-state finite-state machine: `SEARCH`, `ACQUIRE`, `TRACK`, `DEGRADED`, `PREDICT`, `REACQUIRE`, and `FAILSAFE`. Following target loss, prediction-guided hierarchical ROI expansion enables rapid reacquisition, with a measured $0.60\text{ s}$ reacquisition time in the reported acceptance scenario.
+
+The predictive controller converts image-space error into camera angular commands using target-velocity feed-forward, feedback control, and actuator slew-rate limiting. A key architectural innovation is the decoupled, single-entry-point **`TrackerCore`**, which serves both closed-loop digital-twin simulation (`SimulationInput`) and external video streams (`MP4Input`). This ensures that the same perception and tracking logic is used across simulation and benchmark evaluation.
+
+An asynchronous, non-blocking telemetry flight recorder transfers per-frame metrics through a bounded queue to a background logging worker, preventing synchronous disk operations from blocking the tracking loop. ASTRA-PAT provides deterministic YAML scenarios, automated acceptance testing, canonical CSV/JSON outputs, an interactive PySide6 scientific desktop GUI, and a packaged standalone Windows executable. The learned candidate discriminator is isolated behind an empirical A/B/C/D ablation framework to objectively measure its contribution against the classical computer-vision and estimation pipeline.
+
+The system provides a reproducible, measurable, and hardware-independent platform for coarse-PAT algorithm development, benchmarking, and future hardware-in-the-loop (HIL) integration for mobile FSOC terminals.
 
 ### Key Operational Capabilities
 - **100% Offline Execution**: Zero cloud calls, web services, REST endpoints, or external database servers. Packaged into a standalone Windows `.exe` using PyInstaller.
 - **Measured Throughput Over Assumptions**: Operates at **$> 1000\text{ FPS}$** ($< 0.95\text{ ms/frame}$ pipeline latency), providing a $> 50\times$ margin above the required $\ge 20\text{ FPS}$ specification.
-- **Extreme Disturbance Rejection**: Robust subpixel intensity centroiding survives **$10\%$ salt-and-pepper noise coverage**, Gaussian ($\sigma \le 15\text{ px}$) and Poisson shot noise, $\pm 20\text{ px/frame}$ camera jitter, and atmospheric degradation (haze, fog, rain, low-light).
+- **Extreme Disturbance Rejection**: Robust subpixel intensity centroiding survives **10% salt-and-pepper noise coverage**, Gaussian ($\sigma \le 15\text{ px}$) and Poisson shot noise, $\pm 20\text{ px/frame}$ camera jitter, and atmospheric degradation (haze, fog, rain, low-light).
 - **Dual Interchangeable Input Architecture**: Houses both an active closed-loop digital twin simulator (`SimulationInput`) and an external `.mp4` video decoder (`MP4Input`) that feed the identical `TrackerCore` pipeline.
 - **Asynchronous Telemetry Flight Recorder**: Decoupled non-blocking telemetry logging with bounded queues (`maxsize=5000`) and a background daemon worker thread guarantees zero file I/O latency penalty during high-speed tracking loops.
+
 
 ---
 
